@@ -9,6 +9,11 @@
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  */
 
+/* Note: All the IS_TESTBED checks is added instead of removing
+ * code to allow easier sync to upstream kernel version (avoiding
+ * too many patch errors).
+ */
+
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -16,9 +21,18 @@
 #include <linux/errno.h>
 #include <linux/skbuff.h>
 #include <net/pkt_sched.h>
+#include "../sch_testbed.h"
+#ifdef IS_TESTBED
+
+/* private data for the Qdisc */
+struct pfifo_sched_data {
+	struct testbed_metrics testbed;
+};
+#endif
 
 /* 1 band FIFO pseudo-"scheduler" */
 
+#ifndef IS_TESTBED
 static int bfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 			 struct sk_buff **to_free)
 {
@@ -27,6 +41,7 @@ static int bfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 
 	return qdisc_drop(skb, sch, to_free);
 }
+#endif
 
 static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 			 struct sk_buff **to_free)
@@ -34,9 +49,27 @@ static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 	if (likely(sch->q.qlen < sch->limit))
 		return qdisc_enqueue_tail(skb, sch);
 
+#ifdef IS_TESTBED
+	testbed_inc_drop_count(skb, &((struct pfifo_sched_data *) qdisc_priv(sch))->testbed);
+#endif
 	return qdisc_drop(skb, sch, to_free);
 }
 
+#ifdef IS_TESTBED
+static struct sk_buff *pfifo_dequeue_head(struct Qdisc *sch)
+{
+	struct sk_buff *skb;
+	skb = qdisc_dequeue_head(sch);
+
+	if (!skb)
+		return NULL;
+
+	testbed_add_metrics(skb, &((struct pfifo_sched_data *) qdisc_priv(sch))->testbed);
+	return skb;
+}
+#endif
+
+#ifndef IS_TESTBED
 static int pfifo_tail_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 			      struct sk_buff **to_free)
 {
@@ -54,11 +87,15 @@ static int pfifo_tail_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 	qdisc_tree_reduce_backlog(sch, 0, prev_backlog - sch->qstats.backlog);
 	return NET_XMIT_CN;
 }
+#endif
 
 static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
 {
 	bool bypass;
 	bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
+#ifdef IS_TESTBED
+	testbed_metrics_init(&((struct pfifo_sched_data *) qdisc_priv(sch))->testbed);
+#endif
 
 	if (opt == NULL) {
 		u32 limit = qdisc_dev(sch)->tx_queue_len;
@@ -100,11 +137,11 @@ nla_put_failure:
 	return -1;
 }
 
-struct Qdisc_ops pfifo_qdisc_ops __read_mostly = {
-	.id		=	"pfifo",
-	.priv_size	=	0,
+static struct Qdisc_ops pfifo_qsize_qdisc_ops __read_mostly = {
+	.id		=	"pfifo_qsize",
+	.priv_size	=	sizeof(struct pfifo_sched_data),
 	.enqueue	=	pfifo_enqueue,
-	.dequeue	=	qdisc_dequeue_head,
+	.dequeue	=	pfifo_dequeue_head,
 	.peek		=	qdisc_peek_head,
 	.init		=	fifo_init,
 	.reset		=	qdisc_reset_queue,
@@ -112,7 +149,8 @@ struct Qdisc_ops pfifo_qdisc_ops __read_mostly = {
 	.dump		=	fifo_dump,
 	.owner		=	THIS_MODULE,
 };
-EXPORT_SYMBOL(pfifo_qdisc_ops);
+#ifndef IS_TESTBED
+EXPORT_SYMBOL(pfifo_qsize_qdisc_ops);
 
 struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
 	.id		=	"bfifo",
@@ -182,3 +220,22 @@ struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
 	return q ? : ERR_PTR(err);
 }
 EXPORT_SYMBOL(fifo_create_dflt);
+#endif /* ifndef IS_TESTBED */
+#ifdef IS_TESTBED
+
+/* for the testbed we don't care about other than normal pfifo */
+static int __init pfifo_module_init(void)
+{
+       return register_qdisc(&pfifo_qsize_qdisc_ops);
+}
+
+static void __exit pfifo_module_exit(void)
+{
+       unregister_qdisc(&pfifo_qsize_qdisc_ops);
+}
+
+module_init(pfifo_module_init)
+module_exit(pfifo_module_exit)
+
+MODULE_LICENSE("GPL");
+#endif
