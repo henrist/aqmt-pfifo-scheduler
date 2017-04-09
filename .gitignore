@@ -1,0 +1,8 @@
+.sch_fifo.ko.cmd
+.sch_fifo.mod.o.cmd
+.sch_fifo.o.cmd
+.tmp_versions/
+Module.symvers
+modules.order
+sch_fifo.ko
+sch_fifo.mod.c
