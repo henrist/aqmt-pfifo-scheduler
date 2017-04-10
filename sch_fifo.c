@@ -46,6 +46,12 @@ static int bfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 			 struct sk_buff **to_free)
 {
+#ifdef IS_TESTBED
+	/* Timestamp the packet so we can calculate the queue length
+	 * when we collect metrics in the dequeue process.
+	 */
+	__net_timestamp(skb);
+#endif
 	if (likely(sch->q.qlen < sch->limit))
 		return qdisc_enqueue_tail(skb, sch);
 
