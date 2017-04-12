@@ -21,7 +21,7 @@
 #include <linux/errno.h>
 #include <linux/skbuff.h>
 #include <net/pkt_sched.h>
-#include "../sch_testbed.h"
+#include "../common/sch_testbed.h"
 #ifdef IS_TESTBED
 
 /* private data for the Qdisc */
