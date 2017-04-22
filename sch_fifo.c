@@ -21,7 +21,7 @@
 #include <linux/errno.h>
 #include <linux/skbuff.h>
 #include <net/pkt_sched.h>
-#include "testbed.h" /* symlink this from common folder in aqmt repository */
+#include "testbed.h" /* see README for where this is located */
 #ifdef IS_TESTBED
 
 /* private data for the Qdisc */

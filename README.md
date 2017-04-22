@@ -9,8 +9,8 @@ be a 1-to-1 match to the implementation in Linux.
 
 ## Using
 
-Before building you have to symlink `common/testbed.h` from the aqmt project
-so it is available in this folder.
+When building, we need to add the `common` directory of the `aqmt`
+repository to the inclusion path.
 
 To be able to actually use this qdisc you will also have to patch iproute2.
 See below.
@@ -18,7 +18,7 @@ See below.
 Building:
 
 ```
-make
+CPATH=/path/to/aqmt/common make
 ```
 
 Loading kernel module:
