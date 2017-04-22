@@ -144,7 +144,7 @@ nla_put_failure:
 }
 
 static struct Qdisc_ops pfifo_qsize_qdisc_ops __read_mostly = {
-	.id		=	"pfifo_qsize",
+	.id		=	"pfifo_aqmt",
 	.priv_size	=	sizeof(struct pfifo_sched_data),
 	.enqueue	=	pfifo_enqueue,
 	.dequeue	=	pfifo_dequeue_head,
