@@ -6,3 +6,5 @@ Module.symvers
 modules.order
 sch_fifo.ko
 sch_fifo.mod.c
+sch_fifo.mod.o
+sch_fifo.o
